@@ -1,0 +1,44 @@
+name: Publish CI
+
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+
+on:
+  push:
+    # Publish semver tags as releases.
+    tags: [ 'v*' ]
+
+jobs:
+  publish:
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Log in to docker
+        env:
+          DOCKER_USER: rzuckerm
+          DOCKER_TOKEN: ${{secrets.DOCKER_TOKEN}}
+        run: echo "${DOCKER_TOKEN}" | docker login -u "${DOCKER_USER}" --password-stdin
+
+      - name: Get tag
+        id: tag
+        uses: dawidd6/action-get-tag@v1
+        with:
+          # Optionally strip `v` prefix
+          strip_v: true
+
+      - name: Show tag
+        run: echo "Tag (without v) is ${{steps.tag.outputs.tag}}"
+
+      - name: Build images
+        run: make build DOCKER_TAG_SUFFIX=-${{steps.tag.outputs.tag}}
+
+      - name: Test images
+        run: make test DOCKER_TAG_SUFFIX=-${{steps.tag.outputs.tag}}
+
+      - name: Publish images
+        run: make publish DOCKER_TAG_SUFFIX=-${{steps.tag.outputs.tag}}
